@@ -489,7 +489,11 @@ function generateOutput(){
   const mm=String(today.getMonth()+1).padStart(2,'0');
   const dd=String(today.getDate()).padStart(2,'0');
   const days=['일','월','화','수','목','금','토'];
-  const menuLine=Object.entries(mc).sort((a,b)=>b[1]-a[1]).map(([m,c])=>m+' '+c+'잔').join(', ');
+  const sorted=Object.entries(mc).sort((a,b)=>{
+    const aIce=a[0].includes('얼음컵'), bIce=b[0].includes('얼음컵');
+    if(aIce&&!bIce)return 1; if(!aIce&&bIce)return -1; return b[1]-a[1];
+  });
+  const menuLine=sorted.map(([m,c])=>m+' '+c+'잔').join('\n');
   document.getElementById('orderSummaryText').textContent='['+mm+'/'+dd+'('+days[today.getDay()]+') 커피 주문]\n'+menuLine+'\n\n총 '+ordering.length+'잔입니다. 감사합니다!';
   document.getElementById('resultTableBody').innerHTML=parsedOrders.map(o=>
     '<tr><td>'+esc(o.name)+'</td>'+
