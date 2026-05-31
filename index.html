@@ -513,12 +513,28 @@ function copyOrder(){navigator.clipboard.writeText(document.getElementById('orde
 function shareOrder(){const t=document.getElementById('orderSummaryText').textContent;if(navigator.share)navigator.share({text:t});else copyOrder();}
 
 function downloadCSV(){
-  const BOM='\uFEFF',today=new Date();
-  const stamp=today.getFullYear()+String(today.getMonth()+1).padStart(2,'0')+String(today.getDate()).padStart(2,'0');
-  const rows=parsedOrders.map(o=>'"'+o.name+'","'+(o.skip?'미참여':o.menu)+'","'+(o.skip?'안 마심':'')+'"').join('\n');
+  const BOM='\uFEFF', today=new Date();
+  const mm=String(today.getMonth()+1).padStart(2,'0');
+  const dd=String(today.getDate()).padStart(2,'0');
+  const days=['일','월','화','수','목','금','토'];
+  const dateLabel=mm+'/'+dd+'('+days[today.getDay()]+')';
+  const stamp=today.getFullYear()+mm+dd;
+
+  const members=['노정숙','인복근','이금선','하경란','조형근','김나단','이요한','사공윤호','홍석청','김인자','염겸손','정대명','이찬진'];
+  const orderedNames=parsedOrders.filter(o=>!o.skip&&o.menu).map(o=>o.name);
+
+  const header='이름,'+dateLabel;
+  const rows=members.map(member=>{
+    const ordered=orderedNames.some(n=>n.includes(member)||member.split('').slice(0,2).every(c=>n.includes(c)));
+    return '"'+member+'",'+(ordered?'ㅇ':'');
+  });
+
+  const csv=BOM+header+'\n'+rows.join('\n');
   const a=document.createElement('a');
-  a.href=URL.createObjectURL(new Blob([BOM+'이름,메뉴,비고\n'+rows],{type:'text/csv;charset=utf-8;'}));
-  a.download='커피주문_'+stamp+'.csv';a.click();showToast('⬇️ CSV 다운로드 완료!');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));
+  a.download='커피출석_'+stamp+'.csv';
+  a.click();
+  showToast('⬇️ CSV 다운로드 완료!');
 }
 
 function copyTable(){
