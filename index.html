@@ -382,13 +382,11 @@ async function runAnalysis(){
     parsedOrders=[];
     for(const o of parsed.orders){
       if(o.skip){parsedOrders.push({name:o.name||'',menu:'',skip:true});continue;}
-      // 배열이거나 쉼표로 구분된 문자열이면 각각 분리
       let menus=[];
       if(Array.isArray(o.menu)){
         menus=o.menu.map(m=>m.trim()).filter(m=>m);
       } else {
         const raw=(o.menu||'').trim();
-        // 쉼표가 있고 각 항목이 짧으면(30자 이하) 다중 주문으로 판단
         const parts=raw.split(',').map(m=>m.trim()).filter(m=>m);
         if(parts.length>1 && parts.every(p=>p.length<=30)){
           menus=parts;
@@ -397,7 +395,14 @@ async function runAnalysis(){
         }
       }
       menus.forEach(m=>{
-        parsedOrders.push({name:o.name||'',menu:m,skip:false});
+        // 메뉴 앞에 "이름 -" 패턴이 있으면 그 이름을 실제 주문자로 사용
+        // 예: "노목사님 - 핫 디카페인" → name: 노목사님, menu: 핫 디카페인
+        const delegateMatch = m.match(/^(.{2,10}?(?:님|목사님|전도사님|간사님|집사님|장로님|권사님|집사|간사|목사|전도사)?)\s*[-–—]\s*(.+)/);
+        if(delegateMatch){
+          parsedOrders.push({name:delegateMatch[1].trim(), menu:delegateMatch[2].trim(), skip:false});
+        } else {
+          parsedOrders.push({name:o.name||'', menu:m, skip:false});
+        }
       });
     }
     atxt.textContent='✅ 분석 완료!';
