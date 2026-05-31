@@ -331,7 +331,7 @@ async function callGemini(imageFiles){
 응답 형식:
 {"orders":[{"name":"홍길동 목사님","menu":"아이스 아메리카노","skip":false},{"name":"김철수","menu":"","skip":true}]}`});
 
-  const url='https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key='+apiKey;
+  const url='https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key='+apiKey;
   const res=await fetch(url,{
     method:'POST',
     headers:{'Content-Type':'application/json'},
