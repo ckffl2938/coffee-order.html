@@ -487,23 +487,56 @@ function deleteRow(i){parsedOrders.splice(i,1);renderStats();renderEditTable();}
 function addRow(){parsedOrders.push({name:'',menu:'',skip:false});renderEditTable();const rows=document.querySelectorAll('#editTableBody tr');rows[rows.length-1]?.querySelector('input')?.focus();}
 
 function generateOutput(){
-  const ordering=parsedOrders.filter(o=>!o.skip&&o.menu);
+  // 이찬진의 주문은 별도로 분리 (포인트 처리)
+  const chanjinOrders = parsedOrders.filter(o=>!o.skip && o.menu && o.name.includes('이찬진'));
+  const ordering = parsedOrders.filter(o=>!o.skip && o.menu && !o.name.includes('이찬진'));
+
   const mc={};
   ordering.forEach(o=>{mc[o.menu]=(mc[o.menu]||0)+1;});
+
   const today=new Date();
   const mm=String(today.getMonth()+1).padStart(2,'0');
   const dd=String(today.getDate()).padStart(2,'0');
   const days=['일','월','화','수','목','금','토'];
+
   const sorted=Object.entries(mc).sort((a,b)=>{
     const aIce=a[0].includes('얼음컵'), bIce=b[0].includes('얼음컵');
     if(aIce&&!bIce)return 1; if(!aIce&&bIce)return -1; return b[1]-a[1];
   });
   const menuLine=sorted.map(([m,c])=>m+' '+c+'잔').join('\n');
-  document.getElementById('orderSummaryText').textContent='['+mm+'/'+dd+'('+days[today.getDay()]+') 커피 주문]\n'+menuLine+'\n\n총 '+ordering.length+'잔입니다. 감사합니다!';
+
+  // 얼음컵 개수 (전체 parsedOrders 기준)
+  const iceCupCount = parsedOrders.filter(o=>!o.skip && o.menu && o.menu.trim()==='얼음컵').length;
+
+  // 포인트 처리 (얼음컵 아닌 메뉴만)
+  const pointOrders = chanjinOrders.filter(o=>o.menu.trim()!=='얼음컵');
+  const pointCount = pointOrders.length;
+
+  // 일반 주문 잔수 (얼음컵 제외, ordering 기준)
+  const normalCount = ordering.filter(o=>o.menu.trim()!=='얼음컵').length;
+
+  // 총 잔수 표시: 일반 + 포인트 + 얼음컵 (0인 항목 생략)
+  const totalParts = [];
+  totalParts.push(normalCount+'잔');
+  if(pointCount>0) totalParts.push(pointCount+'잔(포인트)');
+  if(iceCupCount>0) totalParts.push(iceCupCount+'잔(얼음컵)');
+  const totalLine = totalParts.join(' + ');
+
+  // 이찬진 포인트 멘트
+  let pointNote = '';
+  if(pointOrders.length>0){
+    const pointMenuLine = pointOrders.map(o=>o.menu+' 1잔').join(', ');
+    pointNote = '\n\n'+pointMenuLine+'은\n포인트로 해주세요!';
+  }
+
+  document.getElementById('orderSummaryText').textContent=
+    '['+mm+'/'+dd+'('+days[today.getDay()]+') 커피 주문]\n'+menuLine+pointNote+'\n\n총 '+totalLine+'입니다.\n감사합니다!';
+
   document.getElementById('resultTableBody').innerHTML=parsedOrders.map(o=>
     '<tr><td>'+esc(o.name)+'</td>'+
     '<td>'+(o.skip?'<span class="skip-badge">미참여</span>':'<span class="menu-badge">'+esc(o.menu)+'</span>')+'</td>'+
     '<td style="font-size:12px;color:var(--gray-600)">'+(o.skip?'안 마심':'')+'</td></tr>').join('');
+
   document.getElementById('step3-card').classList.remove('hidden');
   document.getElementById('step4-card').classList.remove('hidden');
   document.getElementById('step3-card').scrollIntoView({behavior:'smooth',block:'start'});
@@ -520,7 +553,7 @@ function downloadCSV(){
   const dateLabel=mm+'/'+dd+'('+days[today.getDay()]+')';
   const stamp=today.getFullYear()+mm+dd;
 
-  const members=['노정숙','인복근','이금선','하경란','조형근','김나단','이요한','사공윤호','홍석청','김인자','염겸손','정대명','이찬진'];
+  const members=['노정숙','인복근','이금선','하경란','조형근','김나단','이요한','사공윤호','홍석청','김인자','염겸손','정대명'];
   // 얼음컵만 주문한 사람은 ㅇ 표시 제외
   const orderedNames=parsedOrders.filter(o=>!o.skip&&o.menu&&o.menu.trim()!=='얼음컵').map(o=>o.name);
 
