@@ -487,9 +487,9 @@ function deleteRow(i){parsedOrders.splice(i,1);renderStats();renderEditTable();}
 function addRow(){parsedOrders.push({name:'',menu:'',skip:false});renderEditTable();const rows=document.querySelectorAll('#editTableBody tr');rows[rows.length-1]?.querySelector('input')?.focus();}
 
 function generateOutput(){
-  // 이찬진의 주문은 별도로 분리 (포인트 처리)
+  // 이찬진의 주문은 포인트 처리용으로 별도 표시하되, 메뉴 목록에는 포함
   const chanjinOrders = parsedOrders.filter(o=>!o.skip && o.menu && o.name.includes('이찬진'));
-  const ordering = parsedOrders.filter(o=>!o.skip && o.menu && !o.name.includes('이찬진'));
+  const ordering = parsedOrders.filter(o=>!o.skip && o.menu);
 
   const mc={};
   ordering.forEach(o=>{mc[o.menu]=(mc[o.menu]||0)+1;});
@@ -505,15 +505,15 @@ function generateOutput(){
   });
   const menuLine=sorted.map(([m,c])=>m+' '+c+'잔').join('\n');
 
-  // 얼음컵 개수 (전체 parsedOrders 기준)
-  const iceCupCount = parsedOrders.filter(o=>!o.skip && o.menu && o.menu.trim()==='얼음컵').length;
+  // 얼음컵 개수
+  const iceCupCount = ordering.filter(o=>o.menu.trim()==='얼음컵').length;
 
   // 포인트 처리 (얼음컵 아닌 메뉴만)
   const pointOrders = chanjinOrders.filter(o=>o.menu.trim()!=='얼음컵');
   const pointCount = pointOrders.length;
 
-  // 일반 주문 잔수 (얼음컵 제외, ordering 기준)
-  const normalCount = ordering.filter(o=>o.menu.trim()!=='얼음컵').length;
+  // 전체 잔수 - 얼음컵 - 포인트분 = 일반 주문 잔수
+  const normalCount = ordering.filter(o=>o.menu.trim()!=='얼음컵').length - pointCount;
 
   // 총 잔수 표시: 일반 + 포인트 + 얼음컵 (0인 항목 생략)
   const totalParts = [];
