@@ -403,9 +403,9 @@ async function runAnalysis(){
         // 예: "노목사님 - 핫 디카페인" → name: 노목사님, menu: 핫 디카페인
         const delegateMatch = m.match(/^(.{2,10}(?:님|목사님|전도사님|간사님|집사님|장로님|권사님|집사|간사|목사|전도사)?)\s*[-–—]\s*(.+)/);
         if(delegateMatch){
-          parsedOrders.push({name:delegateMatch[1].trim(), menu:delegateMatch[2].trim(), skip:false});
+          parsedOrders.push({name:delegateMatch[1].trim(), menu:normalizeMenu(delegateMatch[2].trim()), skip:false});
         } else {
-          parsedOrders.push({name:o.name||'', menu:m, skip:false});
+          parsedOrders.push({name:o.name||'', menu:normalizeMenu(m), skip:false});
         }
       });
       // 이찬진 이름인데 메뉴 전체가 "이름 - 메뉴" 패턴이면 교정
@@ -485,6 +485,15 @@ function renderEditTable(){
     '<td>'+(o.skip?'<span class="skip-badge">불참</span>':'<input class="edit-input" value="'+esc(o.menu)+'" onchange="updateOrder('+i+',\'menu\',this.value)">')+'</td>'+
     '<td><button onclick="deleteRow('+i+')" style="background:none;border:none;cursor:pointer;color:var(--red);font-size:18px">🗑</button></td>'+
     '</tr>').join('');
+}
+
+function normalizeMenu(m){
+  if(!m) return m;
+  // 오트밀라떼 띄어쓰기 교정
+  m = m.replace(/오트밀라떼/g, '오트밀 라떼');
+  // 중복 공백 제거
+  m = m.replace(/\s+/g, ' ').trim();
+  return m;
 }
 
 function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
