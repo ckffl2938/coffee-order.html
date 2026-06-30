@@ -569,13 +569,44 @@ function downloadCSV(){
   const stamp=today.getFullYear()+mm+dd;
 
   const members=['노정숙','인복근','이금선','하경란','조형근','김나단','이요한','사공윤호','홍석청','김인자','염겸손','정대명'];
-  // 얼음컵만 주문한 사람은 ㅇ 표시 제외
-  const orderedNames=parsedOrders.filter(o=>!o.skip&&o.menu&&o.menu.trim()!=='얼음컵').map(o=>o.name);
+  // 노목사님 -> 노정숙 매핑
+  const nameMap={'노목사님':'노정숙'};
+
+  // 메뉴를 축약어로 변환
+  function shortMenu(menu){
+    if(!menu) return '';
+    if(menu.includes('다크')) return '다크';
+    if(menu.includes('선셋')) return '선셋';
+    if(menu.includes('게이샤')) return '게이샤';
+    if(menu.includes('디카페인')) return '디카페인';
+    if(menu.includes('바닐')) return '바닐라';
+    if(menu.includes('나이스')) return '나이스';
+    if(menu.includes('오트밀')) return '오트밀';
+    return menu;
+  }
+
+  // 이름별 메뉴 매핑 (얼음컵만 시킨 경우 제외)
+  const nameToMenu={};
+  parsedOrders.filter(o=>!o.skip&&o.menu&&o.menu.trim()!=='얼음컵').forEach(o=>{
+    let mappedName = o.name;
+    for(const key in nameMap){
+      if(o.name.includes(key)) mappedName = nameMap[key];
+    }
+    if(!nameToMenu[mappedName]){
+      nameToMenu[mappedName] = shortMenu(o.menu);
+    }
+  });
 
   const header='이름,'+dateLabel;
   const rows=members.map(member=>{
-    const ordered=orderedNames.some(n=>n.includes(member)||member.split('').slice(0,2).every(c=>n.includes(c)));
-    return '"'+member+'",'+(ordered?'ㅇ':'');
+    let mark='';
+    for(const name in nameToMenu){
+      if(name.includes(member)||member.split('').slice(0,2).every(c=>name.includes(c))){
+        mark=nameToMenu[name];
+        break;
+      }
+    }
+    return '"'+member+'",'+mark;
   });
 
   const csv=BOM+header+'\n'+rows.join('\n');
