@@ -415,20 +415,30 @@ async function runAnalysis(){
     const cleaned=resultText.replace(/```json|```/g,'').trim();
     const parsed=JSON.parse(cleaned);
     if(!parsed.orders?.length){showToast('주문 정보를 찾지 못했습니다.');return;}
+    // 알려진 실제 멤버 이름 목록 (대리주문 판별용)
+    const REAL_MEMBERS = ['노정숙','노목사님','인복근','이요한','사공윤호','홍석청','이금선','하경란','김인자','지종호','지목사님','박근영','전지경','손경미','염겸손','조형근','김나단','정대명','이찬진'];
+
+    // 텍스트에서 "실제주문자이름 _ or - 메뉴" 패턴 추출
+    function extractDelegate(text){
+      // "_" 구분자
+      const u = text.match(/^(.{2,15}?)_(.+)/);
+      if(u) return {name:u[1].trim(), menu:u[2].trim()};
+      // "-" 구분자
+      const d = text.match(/^(.{2,15}?)\s*[-–—]\s*(.+)/);
+      if(d) return {name:d[1].trim(), menu:d[2].trim()};
+      return null;
+    }
+
     parsedOrders=[];
     for(const o of parsed.orders){
       if(o.skip){parsedOrders.push({name:o.name||'',menu:'',skip:true});continue;}
 
-      // 이름 자체에 _ 구분자가 포함된 경우 처리 (예: "노목사님_핫 디카페인")
-      // AI가 name에 대리주문 정보를 넣는 경우 대비
+      // name 자체에 _ 포함된 경우 (예: "노목사님_핫 디카페인")
       let oName = o.name||'';
       let oMenu = o.menu;
       if(oName.includes('_')){
-        const underIdx = oName.indexOf('_');
-        const possibleMenu = oName.slice(underIdx+1).trim();
-        oName = oName.slice(0, underIdx).trim();
-        // menu가 비어있거나 이름과 같으면 _ 뒤를 메뉴로 사용
-        if(!oMenu || oMenu===o.name) oMenu = possibleMenu;
+        const d = extractDelegate(oName);
+        if(d){ oName=d.name; if(!oMenu) oMenu=d.menu; }
       }
 
       let menus=[];
@@ -443,18 +453,25 @@ async function runAnalysis(){
           menus=[raw];
         }
       }
+
       menus.forEach(m=>{
-        // _ 구분자 패턴 (예: "노목사님_핫 디카페인")
-        const underMatch = m.match(/^(.{2,10}?(?:님|목사님|전도사님|간사님|집사님|장로님|권사님|집사|간사|목사|전도사)?)_(.+)/);
-        // - 구분자 패턴 (예: "노목사님 - 핫 디카페인")
-        const dashMatch = m.match(/^(.{2,10}(?:님|목사님|전도사님|간사님|집사님|장로님|권사님|집사|간사|목사|전도사)?)\s*[-–—]\s*(.+)/);
-        if(underMatch){
-          parsedOrders.push({name:underMatch[1].trim(), menu:normalizeMenu(underMatch[2].trim()), skip:false});
-        } else if(dashMatch){
-          parsedOrders.push({name:dashMatch[1].trim(), menu:normalizeMenu(dashMatch[2].trim()), skip:false});
-        } else {
-          parsedOrders.push({name:oName||'', menu:normalizeMenu(m), skip:false});
+        const d = extractDelegate(m);
+        if(d && d.name.length>=2){
+          // 추출된 이름이 알려진 멤버이거나 직함 포함이면 대리주문으로 확정
+          const isRealName = REAL_MEMBERS.some(r=>d.name.includes(r)||r.includes(d.name))
+            || /목사님|전도사님|간사님|집사님|장로님|권사님/.test(d.name);
+          if(isRealName){
+            // 메뉴도 다시 쉼표 분리 (예: "핫 디카페인, 핫 오트밀 라떼")
+            const subParts = d.menu.split(',').map(s=>s.trim()).filter(s=>s);
+            if(subParts.length>1 && subParts.every(s=>s.length<=30)){
+              subParts.forEach(s=>parsedOrders.push({name:d.name, menu:normalizeMenu(s), skip:false}));
+            } else {
+              parsedOrders.push({name:d.name, menu:normalizeMenu(d.menu), skip:false});
+            }
+            return;
+          }
         }
+        parsedOrders.push({name:oName||'', menu:normalizeMenu(m), skip:false});
       });
     }
     atxt.textContent='✅ 분석 완료!';
