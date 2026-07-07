@@ -349,37 +349,36 @@ async function callGemini(imageFiles){
     const b64=await fileToBase64(file);
     parts.push({inline_data:{mime_type:file.type||'image/jpeg',data:b64}});
   }
-  parts.push({text:`이 이미지는 카카오톡 커피 주문 투표 결과 스크린샷입니다.
-이미지에서 각 사람의 이름과 주문한 커피 메뉴를 정확히 추출해주세요.
+  parts.push({text:`이 이미지는 카카오톡 커피 주문 투표 결과 또는 댓글 스크린샷입니다.
+각 사람의 이름과 주문한 커피 메뉴를 정확히 추출해주세요.
 
-규칙:
-- 실제 사람 이름만 추출 (날짜/시간/투표현황/커피메뉴골라주세요 같은 UI텍스트는 완전히 무시)
-- "X", "X -", "안 먹습니다", "안먹습니다", "불참", "패스", "오늘은 안" 이 포함된 항목만 skip: true
-- 메뉴가 있는 항목은 절대 skip: true로 표시하지 말 것. 메뉴 텍스트가 보이면 무조건 skip: false
-- 메뉴에서 가격(-2000, -1500 등 숫자) 제거
-- 메뉴 표기 시 반드시 [온도] + [원두/종류] + [음료종류] 순서로 표기
-  예: "아이스 다크 아메리카노", "핫 다크 아메리카노", "핫 디카페인", "핫 오트밀라떼"
-- 온도 정보(아이스/핫)는 절대 생략하지 말 것
-- 원두명/종류명(다크/선셋/게이샤/디카페인/오트밀 등)도 절대 생략하지 말 것
-- 얼음컵은 그대로 "얼음컵"으로 표기
-- 중요: 카톡 댓글에 "홍길동 - 메뉴" 또는 "홍길동_메뉴" 형식이 있으면
-  이것은 댓글 작성자가 홍길동을 대신해서 주문하는 것임
-  반드시 name은 "-" 또는 "_" 앞의 이름(홍길동)으로, menu는 배열로 표기할 것
-  댓글 작성자 이름을 name으로 절대 사용하지 말 것
-  예: "노목사님_핫 디카페인" → name: "노목사님", menu: "핫 디카페인"
-  예: "노목사님 - 디카페인 핫, 오트밀라떼 핫, 얼음컵" → name: "노목사님", menu: ["핫 디카페인","핫 오트밀라떼","얼음컵"]
-- 메뉴에 아메리카노/라떼가 생략된 경우 자동으로 추가:
-  다크/선셋/게이샤/디카페인 → 아메리카노 (예: "아이스 다크" → "아이스 다크 아메리카노")
-  바닐라/나이스/오트밀 → 라떼 (예: "핫 오트밀" → "핫 오트밀 라떼")
-- 한 사람이 여러 메뉴를 주문한 경우 menu를 배열로 표기
-- JSON만 응답, 다른 텍스트 절대 포함 금지
+[핵심 규칙]
+1. 투표 결과 화면: 이름 옆에 메뉴가 표시됨 → 그 이름이 주문자
+2. 댓글 형식: "댓글작성자" 아래에 "실제주문자이름—메뉴" 또는 "실제주문자이름 - 메뉴" 형식
+   → 댓글 작성자 이름(정대명, 이찬진 등)은 완전히 무시
+   → "—" 또는 "-" 앞의 이름이 실제 주문자
+   → 한 댓글에 여러 줄이면 각각 별도 주문으로 처리
+   예시: 정대명이 "박근영목사님—아이스 다크" 라고 댓글 → name:"박근영목사님", menu:"아이스 다크 아메리카노"
+   예시: 이찬진이 "노목사님 - 핫 디카페인, 핫 오트밀 라떼, 얼음컵" → name:"노목사님", menu:["핫 디카페인","핫 오트밀 라떼","얼음컵"]
 
-응답 형식:
+3. skip 규칙: "X", "안 먹습니다", "불참", "패스", "오늘은 안" 포함 시만 skip:true
+   메뉴가 보이면 절대 skip:true 금지
+
+4. 메뉴 규칙:
+   - 온도(핫/아이스) 절대 생략 금지
+   - 다크/선셋/게이샤/디카페인 → 뒤에 "아메리카노" 자동 추가 (없으면)
+   - 바닐라/나이스/오트밀 → 뒤에 "라떼" 자동 추가 (없으면)
+   - 가격(-2000 등) 제거
+   - 얼음컵은 그대로 "얼음컵"
+
+5. UI 텍스트 무시: 날짜/시간/투표현황/커피메뉴골라주세요/N분전 등
+
+JSON만 응답, 다른 텍스트 절대 포함 금지:
 {"orders":[
   {"name":"이금선 전도사님","menu":"아이스 다크 아메리카노","skip":false},
-  {"name":"이찬진","menu":"아이스 다크 아메리카노","skip":false},
   {"name":"인복근 목사님","menu":"","skip":true},
-  {"name":"노목사님","menu":["핫 디카페인","핫 오트밀라떼","얼음컵"],"skip":false}
+  {"name":"박근영목사님","menu":"아이스 다크 아메리카노","skip":false},
+  {"name":"노목사님","menu":["핫 디카페인","핫 오트밀 라떼","얼음컵"],"skip":false}
 ]}`});
 
   const url='https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key='+apiKey;
@@ -418,14 +417,14 @@ async function runAnalysis(){
     // 알려진 실제 멤버 이름 목록 (대리주문 판별용)
     const REAL_MEMBERS = ['노정숙','노목사님','인복근','이요한','사공윤호','홍석청','이금선','하경란','김인자','지종호','지목사님','박근영','전지경','손경미','염겸손','조형근','김나단','정대명','이찬진'];
 
-    // 텍스트에서 "실제주문자이름 _ or - 메뉴" 패턴 추출
+    // 대리주문자(댓글 작성자) 목록 - 이 이름이 name으로 오면 메뉴에서 실제 주문자 추출
+    const PROXY_NAMES = ['정대명','이찬진'];
+
+    // 텍스트에서 "실제주문자이름 — or - or _ 메뉴" 패턴 추출
     function extractDelegate(text){
-      // "_" 구분자
-      const u = text.match(/^(.{2,15}?)_(.+)/);
-      if(u) return {name:u[1].trim(), menu:u[2].trim()};
-      // "-" 구분자
-      const d = text.match(/^(.{2,15}?)\s*[-–—]\s*(.+)/);
-      if(d) return {name:d[1].trim(), menu:d[2].trim()};
+      // em dash(—), en dash(–), hyphen(-), underscore(_) 모두 처리, 띄어쓰기 없어도 OK
+      const d = text.match(/^(.{2,15}?)\s*[—–\-_]\s*(.+)/);
+      if(d && d[1].trim().length>=2) return {name:d[1].trim(), menu:d[2].trim()};
       return null;
     }
 
@@ -456,22 +455,24 @@ async function runAnalysis(){
 
       menus.forEach(m=>{
         const d = extractDelegate(m);
-        if(d && d.name.length>=2){
-          // 추출된 이름이 알려진 멤버이거나 직함 포함이면 대리주문으로 확정
-          const isRealName = REAL_MEMBERS.some(r=>d.name.includes(r)||r.includes(d.name))
-            || /목사님|전도사님|간사님|집사님|장로님|권사님/.test(d.name);
-          if(isRealName){
-            // 메뉴도 다시 쉼표 분리 (예: "핫 디카페인, 핫 오트밀 라떼")
-            const subParts = d.menu.split(',').map(s=>s.trim()).filter(s=>s);
-            if(subParts.length>1 && subParts.every(s=>s.length<=30)){
-              subParts.forEach(s=>parsedOrders.push({name:d.name, menu:normalizeMenu(s), skip:false}));
-            } else {
-              parsedOrders.push({name:d.name, menu:normalizeMenu(d.menu), skip:false});
-            }
-            return;
+        const isDelegate = d && d.name.length>=2 && (
+          REAL_MEMBERS.some(r=>d.name.includes(r)||r.includes(d.name)) ||
+          /목사님|전도사님|간사님|집사님|장로님|권사님/.test(d.name)
+        );
+
+        if(isDelegate){
+          // "실제주문자—메뉴" 패턴이 메뉴 안에 있음 → 대리주문
+          // 댓글 작성자(oName) 이름은 버리고 실제 주문자 이름 사용
+          const subParts = d.menu.split(',').map(s=>s.trim()).filter(s=>s);
+          if(subParts.length>1 && subParts.every(s=>s.length<=30)){
+            subParts.forEach(s=>parsedOrders.push({name:d.name, menu:normalizeMenu(s), skip:false}));
+          } else {
+            parsedOrders.push({name:d.name, menu:normalizeMenu(d.menu), skip:false});
           }
+        } else {
+          // 패턴 없음 → 본인 주문 (정대명/이찬진 포함 누구든)
+          parsedOrders.push({name:oName||'', menu:normalizeMenu(m), skip:false});
         }
-        parsedOrders.push({name:oName||'', menu:normalizeMenu(m), skip:false});
       });
     }
     atxt.textContent='✅ 분석 완료!';
