@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="커피주문">
+<title>☕ 커피 주문 자동화</title>
+<style>
+  :root {
+    --blue:#1a73e8;--blue-light:#e8f0fe;--blue-mid:#4285f4;
+    --green:#0f9d58;--red:#d93025;--red-light:#fce8e6;
+    --gray-50:#f8f9fa;--gray-100:#f1f3f4;--gray-200:#e8eaed;
+    --gray-400:#bdc1c6;--gray-600:#80868b;--gray-800:#3c4043;--gray-900:#202124;
+    --shadow-sm:0 1px 3px rgba(0,0,0,.12),0 1px 2px rgba(0,0,0,.08);
+    --radius:12px;--radius-sm:8px;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,'Noto Sans KR','Apple SD Gothic Neo',sans-serif;background:var(--gray-50);color:var(--gray-900);min-height:100vh;padding-bottom:env(safe-area-inset-bottom)}
+  header{background:#fff;border-bottom:1px solid var(--gray-200);padding:16px 20px;position:sticky;top:0;z-index:100;display:flex;align-items:center;gap:10px}
+  header h1{font-size:18px;font-weight:700}
+  header p{font-size:12px;color:var(--gray-600)}
+  .container{max-width:640px;margin:0 auto;padding:20px 16px}
+  .card{background:#fff;border-radius:var(--radius);box-shadow:var(--shadow-sm);margin-bottom:16px;overflow:hidden}
+  .card-header{display:flex;align-items:center;gap:10px;padding:16px 20px;border-bottom:1px solid var(--gray-100)}
+  .step{width:28px;height:28px;background:var(--blue);color:#fff;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex-shrink:0}
+  .card-header h2{font-size:15px;font-weight:600}
+  .card-header p{font-size:12px;color:var(--gray-600);margin-top:2px}
+  .card-body{padding:20px}
+  .api-banner{background:#e8f5e9;border:1px solid #a5d6a7;border-radius:var(--radius-sm);padding:14px 16px;margin-bottom:14px;font-size:13px;color:#2e7d32;line-height:1.7}
+  .api-banner a{color:#1557b0;font-weight:600}
+  .api-key-row{display:flex;gap:8px;align-items:center;margin-top:10px}
+  .api-key-input{flex:1;padding:9px 12px;border:1.5px solid var(--gray-200);border-radius:var(--radius-sm);font-size:13px;font-family:monospace}
+  .api-key-input:focus{outline:none;border-color:var(--blue)}
+  .upload-zone{border:2px dashed var(--gray-400);border-radius:var(--radius-sm);padding:40px 20px;text-align:center;cursor:pointer;transition:all .2s;background:var(--gray-50);position:relative}
+  .upload-zone:hover,.upload-zone.drag-over{border-color:var(--blue);background:var(--blue-light)}
+  .upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer}
+  .upload-zone .icon{font-size:40px;margin-bottom:8px}
+  .upload-zone p{color:var(--gray-600);font-size:14px;line-height:1.5}
+  .upload-zone strong{color:var(--blue)}
+  .preview-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(100px,1fr));gap:8px;margin-top:12px}
+  .preview-item{position:relative;border-radius:var(--radius-sm);overflow:hidden;aspect-ratio:9/16;background:var(--gray-100)}
+  .preview-item img{width:100%;height:100%;object-fit:cover}
+  .preview-item .remove{position:absolute;top:4px;right:4px;background:rgba(0,0,0,.6);color:#fff;border:none;border-radius:50%;width:22px;height:22px;font-size:12px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 20px;border-radius:var(--radius-sm);font-size:14px;font-weight:600;border:none;cursor:pointer;transition:all .15s}
+  .btn:active{transform:scale(.97)}
+  .btn-primary{background:var(--blue);color:#fff}
+  .btn-success{background:var(--green);color:#fff}
+  .btn-outline{background:#fff;color:var(--blue);border:1.5px solid var(--blue)}
+  .btn-ghost{background:var(--gray-100);color:var(--gray-800)}
+  .btn-full{width:100%}
+  .btn:disabled{opacity:.45;cursor:not-allowed;transform:none}
+  .tab-row{display:flex;border-bottom:1px solid var(--gray-200);margin-bottom:16px}
+  .tab-btn{padding:10px 16px;font-size:13px;font-weight:600;color:var(--gray-600);background:none;border:none;cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px}
+  .tab-btn.active{color:var(--blue);border-bottom-color:var(--blue)}
+  .order-box{background:var(--blue-light);border:1.5px solid var(--blue-mid);border-radius:var(--radius-sm);padding:16px}
+  .order-box .label{font-size:12px;font-weight:700;color:var(--blue);letter-spacing:.5px;margin-bottom:8px}
+  .order-text{font-size:16px;font-weight:600;color:var(--gray-900);line-height:1.6;white-space:pre-wrap;word-break:break-all}
+  .copy-btn-row{display:flex;gap:8px;margin-top:12px;flex-wrap:wrap}
+  .order-table{width:100%;border-collapse:collapse;font-size:14px}
+  .order-table th{background:var(--gray-100);padding:10px 12px;text-align:left;font-weight:600;font-size:12px;color:var(--gray-600);border-bottom:1px solid var(--gray-200)}
+  .order-table td{padding:10px 12px;border-bottom:1px solid var(--gray-100);vertical-align:middle}
+  .order-table tr:last-child td{border-bottom:none}
+  .order-table tr:hover td{background:var(--gray-50)}
+  .menu-badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:500;background:var(--blue-light);color:var(--blue)}
+  .skip-badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:500;background:var(--red-light);color:var(--red)}
+  .edit-input{width:100%;padding:6px 10px;border:1.5px solid var(--gray-200);border-radius:6px;font-size:13px;font-family:inherit}
+  .edit-input:focus{outline:none;border-color:var(--blue)}
+  .stats-row{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:16px}
+  .stat-box{background:var(--gray-50);border:1px solid var(--gray-200);border-radius:var(--radius-sm);padding:12px;text-align:center}
+  .stat-box .num{font-size:22px;font-weight:700;color:var(--blue)}
+  .stat-box .lbl{font-size:11px;color:var(--gray-600);margin-top:2px}
+  .menu-chart{margin-bottom:16px}
+  .menu-row{display:flex;align-items:center;gap:10px;margin-bottom:8px;font-size:13px}
+  .menu-row .name{width:160px;flex-shrink:0;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .menu-row .bar-wrap{flex:1;height:8px;background:var(--gray-100);border-radius:4px;overflow:hidden}
+  .menu-row .bar{height:100%;background:var(--blue-mid);border-radius:4px;transition:width .5s}
+  .menu-row .count{width:30px;text-align:right;font-weight:700;color:var(--blue)}
+  .analyzing-box{text-align:center;padding:30px 20px}
+  .spinner{width:48px;height:48px;border:4px solid var(--gray-200);border-top-color:var(--blue);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 16px}
+  @keyframes spin{to{transform:rotate(360deg)}}
+  .analyzing-box p{color:var(--gray-600);font-size:14px;line-height:1.7}
+  .progress-bar{height:6px;background:var(--gray-200);border-radius:3px;overflow:hidden;margin:10px auto 0;max-width:280px}
+  .progress-bar-fill{height:100%;background:var(--blue);border-radius:3px;transition:width .4s;width:0%}
+  .raw-text{width:100%;min-height:130px;padding:12px;border:1.5px solid var(--gray-200);border-radius:var(--radius-sm);font-size:13px;font-family:inherit;resize:vertical;line-height:1.6}
+  .raw-text:focus{outline:none;border-color:var(--blue)}
+  .tip-box{background:#e8f5e9;border:1px solid #a5d6a7;border-radius:var(--radius-sm);padding:12px 16px;font-size:13px;color:#2e7d32;line-height:1.6;margin-bottom:14px}
+  .toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%) translateY(80px);background:var(--gray-900);color:#fff;padding:12px 24px;border-radius:24px;font-size:14px;font-weight:500;z-index:9999;transition:transform .3s cubic-bezier(.34,1.56,.64,1);white-space:nowrap;pointer-events:none}
+  .toast.show{transform:translateX(-50%) translateY(0)}
+  .hidden{display:none!important}
+  @media(max-width:400px){.copy-btn-row{flex-direction:column}}
+</style>
+</head>
+<body>
+<header>
+  <div style="font-size:24px">☕</div>
+  <div><h1>커피 주문 자동화</h1><p>카톡 투표 스크린샷 → 주문 텍스트 &amp; 정산표</p></div>
+</header>
+<div class="container">
+
+  <!-- API Key -->
+  <div class="card">
+    <div class="card-header">
+      <div class="step">🔑</div>
+      <div><h2>Gemini API 키 설정 (최초 1회 / 무료)</h2><p>AI가 이미지를 직접 읽어 이름·메뉴를 정확하게 추출합니다</p></div>
+    </div>
+    <div class="card-body">
+      <div class="api-banner">
+        🎉 <strong>Google Gemini API는 무료</strong>로 사용할 수 있어요!<br>
+        ① <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a> 접속<br>
+        ② 구글 계정으로 로그인<br>
+        ③ <strong>"Create API Key"</strong> 클릭 → 키 복사<br>
+        ④ 아래에 붙여넣고 <strong>저장</strong> 클릭<br>
+        <span style="font-size:11px;color:#388e3c">※ 입력한 키는 이 기기에만 저장되며 외부로 전송되지 않습니다.</span>
+      </div>
+      <div class="api-key-row">
+        <input type="password" class="api-key-input" id="apiKeyInput" placeholder="AIza...">
+        <button class="btn btn-primary" onclick="saveApiKey()">저장</button>
+      </div>
+      <div id="apiStatus" style="font-size:12px;margin-top:8px;color:var(--gray-600)"></div>
+    </div>
+  </div>
+
+  <!-- STEP 1 -->
+  <div class="card">
+    <div class="card-header">
+      <div class="step">1</div>
+      <div><h2>스크린샷 업로드</h2><p>카카오톡 투표 결과 이미지를 올려주세요 (여러 장 가능)</p></div>
+    </div>
+    <div class="card-body">
+      <div class="tab-row">
+        <button class="tab-btn active" onclick="switchTab('img')">📷 이미지 업로드</button>
+        <button class="tab-btn" onclick="switchTab('text')">✏️ 텍스트 직접 입력</button>
+      </div>
+      <div id="tab-img">
+        <div class="upload-zone" id="dropZone">
+          <input type="file" id="fileInput" accept="image/*" multiple>
+          <div class="icon">📸</div>
+          <p><strong>클릭하거나 이미지를 드래그</strong>해서 올려주세요<br>카톡 투표 결과 화면 스크린샷 (여러 장 OK)</p>
+        </div>
+        <div id="previewGrid" class="preview-grid"></div>
+        <div id="analyzingBox" class="analyzing-box hidden">
+          <div class="spinner"></div>
+          <p id="analyzingText">Gemini AI가 이미지를 분석 중입니다...<br>잠시만 기다려주세요 ☕</p>
+          <div class="progress-bar"><div class="progress-bar-fill" id="progressFill"></div></div>
+        </div>
+        <button class="btn btn-primary btn-full" id="analyzeBtn" style="margin-top:14px" onclick="runAnalysis()" disabled>
+          🤖 AI로 주문 분석하기
+        </button>
+      </div>
+      <div id="tab-text" class="hidden">
+        <div class="tip-box">✅ 텍스트를 직접 붙여넣으면 가장 빠르고 정확해요!<br>카톡 투표 결과에서 텍스트 복사 후 붙여넣기 하세요.</div>
+        <textarea class="raw-text" id="rawTextInput" placeholder="예시:
+이금선 전도사님 아이스 다크 아메리카노
+이찬진 X - 오늘은 안 먹습니다
+인복근 목사님 X - 오늘은 안 먹습니다
+조형근 집사님 핫 다크 아메리카노
+정대명 간사님 얼음컵"></textarea>
+        <button class="btn btn-primary btn-full" style="margin-top:12px" onclick="parseRawText()">📋 분석하기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 2 -->
+  <div class="card hidden" id="step2-card">
+    <div class="card-header">
+      <div class="step">2</div>
+      <div><h2>결과 확인 &amp; 수정</h2><p>잘못 인식된 내용은 직접 수정하세요</p></div>
+    </div>
+    <div class="card-body">
+      <div class="stats-row" id="statsRow"></div>
+      <div class="menu-chart" id="menuChart"></div>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <span style="font-size:13px;font-weight:600;color:var(--gray-600)">주문 목록</span>
+        <button class="btn btn-ghost" style="font-size:12px;padding:6px 12px" onclick="addRow()">+ 행 추가</button>
+      </div>
+      <div style="overflow-x:auto">
+        <table class="order-table">
+          <thead><tr><th style="width:38%">이름</th><th style="width:47%">메뉴</th><th style="width:15%">삭제</th></tr></thead>
+          <tbody id="editTableBody"></tbody>
+        </table>
+      </div>
+      <button class="btn btn-primary btn-full" style="margin-top:16px" onclick="generateOutput()">✅ 주문 완료 — 결과 생성하기</button>
+    </div>
+  </div>
+
+  <!-- STEP 3 -->
+  <div class="card hidden" id="step3-card">
+    <div class="card-header">
+      <div class="step">3</div>
+      <div><h2>주문 텍스트</h2><p>카페에 문자로 보낼 주문 내용</p></div>
+    </div>
+    <div class="card-body">
+      <div class="order-box">
+        <div class="label">📨 주문 내용</div>
+        <div class="order-text" id="orderSummaryText"></div>
+      </div>
+      <div class="copy-btn-row">
+        <button class="btn btn-primary" onclick="copyOrder()">📋 복사하기</button>
+        <button class="btn btn-outline" onclick="shareOrder()">📤 공유하기</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 5 -->
+  <div class="card hidden" id="step5-card">
+    <div class="card-header">
+      <div class="step">5</div>
+      <div><h2>사역자 / 직원 구분</h2><p>그룹별 주문 현황</p></div>
+    </div>
+    <div class="card-body">
+      <div style="margin-bottom:20px">
+        <div style="font-size:13px;font-weight:700;color:var(--blue);margin-bottom:10px;padding:6px 12px;background:var(--blue-light);border-radius:6px">⛪ 사역자</div>
+        <div style="overflow-x:auto">
+          <table class="order-table" id="ministryTable">
+            <thead><tr><th>이름</th><th>메뉴</th></tr></thead>
+            <tbody id="ministryTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+      <div>
+        <div style="font-size:13px;font-weight:700;color:var(--green);margin-bottom:10px;padding:6px 12px;background:var(--green-light);border-radius:6px">👥 직원</div>
+        <div style="overflow-x:auto">
+          <table class="order-table" id="staffTable">
+            <thead><tr><th>이름</th><th>메뉴</th></tr></thead>
+            <tbody id="staffTableBody"></tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 4 -->
+  <div class="card hidden" id="step4-card">
+    <div class="card-header">
+      <div class="step">4</div>
+      <div><h2>엑셀용 데이터</h2><p>윈도우에서 CSV 다운받아 엑셀에 붙여넣기</p></div>
+    </div>
+    <div class="card-body">
+      <div style="overflow-x:auto;margin-bottom:16px">
+        <table class="order-table">
+          <thead><tr><th>이름</th><th>메뉴</th><th>비고</th></tr></thead>
+          <tbody id="resultTableBody"></tbody>
+        </table>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <button class="btn btn-success" onclick="downloadCSV()">⬇️ CSV 다운로드</button>
+        <button class="btn btn-outline" onclick="copyTable()">📋 표 복사 (엑셀용)</button>
+        <button class="btn btn-ghost" onclick="resetAll()">🔄 처음부터</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+let uploadedFiles=[];
+let parsedOrders=[];
+
+function saveApiKey(){
+  const k=document.getElementById('apiKeyInput').value.trim();
+  if(!k){showToast('❌ API 키를 입력해주세요');return;}
+  localStorage.setItem('gemini_api_key',k);
+  const s=document.getElementById('apiStatus');
+  s.textContent='✅ API 키가 저장되었습니다!';s.style.color='var(--green)';
+  showToast('✅ 저장 완료!');
+}
+function getApiKey(){return localStorage.getItem('gemini_api_key')||'';}
+
+window.addEventListener('load',()=>{
+  const k=getApiKey();
+  if(k){
+    document.getElementById('apiKeyInput').value=k;
+    const s=document.getElementById('apiStatus');
+    s.textContent='✅ 저장된 API 키가 있습니다';s.style.color='var(--green)';
+  }
+});
+
+function switchTab(tab){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('tab-img').classList.add('hidden');
+  document.getElementById('tab-text').classList.add('hidden');
+  if(tab==='img'){
+    document.getElementById('tab-img').classList.remove('hidden');
+    document.querySelectorAll('.tab-btn')[0].classList.add('active');
+  } else {
+    document.getElementById('tab-text').classList.remove('hidden');
+    document.querySelectorAll('.tab-btn')[1].classList.add('active');
+  }
+}
+
+const dropZone=document.getElementById('dropZone');
+const fileInput=document.getElementById('fileInput');
+dropZone.addEventListener('dragover',e=>{e.preventDefault();dropZone.classList.add('drag-over');});
+dropZone.addEventListener('dragleave',()=>dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop',e=>{e.preventDefault();dropZone.classList.remove('drag-over');handleFiles(e.dataTransfer.files);});
+fileInput.addEventListener('change',e=>handleFiles(e.target.files));
+
+function handleFiles(files){
+  Array.from(files).forEach(file=>{
+    if(!file.type.startsWith('image/'))return;
+    uploadedFiles.push(file);
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      const grid=document.getElementById('previewGrid');
+      const item=document.createElement('div');
+      item.className='preview-item';
+      item.innerHTML='<img src="'+ev.target.result+'"><button class="remove" onclick="removeFile('+(uploadedFiles.length-1)+')">x</button>';
+      grid.appendChild(item);
+    };
+    reader.readAsDataURL(file);
+  });
+  document.getElementById('analyzeBtn').disabled=false;
+}
+
+function removeFile(idx){
+  uploadedFiles.splice(idx,1);
+  const grid=document.getElementById('previewGrid');
+  grid.innerHTML='';
+  uploadedFiles.forEach((f,i)=>{
+    const reader=new FileReader();
+    reader.onload=ev=>{
+      const item=document.createElement('div');
+      item.className='preview-item';
+      item.innerHTML='<img src="'+ev.target.result+'"><button class="remove" onclick="removeFile('+i+')">x</button>';
+      grid.appendChild(item);
+    };
+    reader.readAsDataURL(f);
+  });
+  document.getElementById('analyzeBtn').disabled=uploadedFiles.length===0;
+}
+
+function fileToBase64(file){
+  return new Promise((res,rej)=>{
+    const reader=new FileReader();
+    reader.onload=()=>res(reader.result.split(',')[1]);
+    reader.onerror=rej;
+    reader.readAsDataURL(file);
+  });
+}
+
+async function callGemini(imageFiles){
+  const apiKey=getApiKey();
+  if(!apiKey){showToast('❌ API 키를 먼저 입력해주세요!');return null;}
+  const parts=[];
+  for(const file of imageFiles){
+    const b64=await fileToBase64(file);
+    parts.push({inline_data:{mime_type:file.type||'image/jpeg',data:b64}});
+  }
+  parts.push({text:`이 이미지는 카카오톡 커피 주문 투표 결과 스크린샷입니다.
+이미지에서 각 사람의 이름과 주문한 커피 메뉴를 정확히 추출해주세요.
+
+규칙:
+- 실제 사람 이름만 추출 (날짜/시간/투표현황/커피메뉴골라주세요 같은 UI텍스트는 완전히 무시)
+- "X", "X -", "안 먹습니다", "안먹습니다", "불참", "패스", "오늘은 안" 이 포함된 항목만 skip: true
+- 메뉴가 있는 항목은 절대 skip: true로 표시하지 말 것. 메뉴 텍스트가 보이면 무조건 skip: false
+- 메뉴에서 가격(-2000, -1500 등 숫자) 제거
+- 메뉴 표기 시 반드시 [온도] + [원두/종류] + [음료종류] 순서로 표기
+  예: "아이스 다크 아메리카노", "핫 다크 아메리카노", "핫 디카페인", "핫 오트밀라떼"
+- 온도 정보(아이스/핫)는 절대 생략하지 말 것
+- 원두명/종류명(다크/선셋/게이샤/디카페인/오트밀 등)도 절대 생략하지 말 것
+- 얼음컵은 그대로 "얼음컵"으로 표기
+- 중요: 카톡 댓글에 "홍길동 - 메뉴" 또는 "홍길동_메뉴" 형식이 있으면
+  이것은 댓글 작성자가 홍길동을 대신해서 주문하는 것임
+  반드시 name은 "-" 또는 "_" 앞의 이름(홍길동)으로, menu는 배열로 표기할 것
+  댓글 작성자 이름을 name으로 절대 사용하지 말 것
+  예: "노목사님_핫 디카페인" → name: "노목사님", menu: "핫 디카페인"
+  예: "노목사님 - 디카페인 핫, 오트밀라떼 핫, 얼음컵" → name: "노목사님", menu: ["핫 디카페인","핫 오트밀라떼","얼음컵"]
+- 메뉴에 아메리카노/라떼가 생략된 경우 자동으로 추가:
+  다크/선셋/게이샤/디카페인 → 아메리카노 (예: "아이스 다크" → "아이스 다크 아메리카노")
+  바닐라/나이스/오트밀 → 라떼 (예: "핫 오트밀" → "핫 오트밀 라떼")
+- 한 사람이 여러 메뉴를 주문한 경우 menu를 배열로 표기
+- JSON만 응답, 다른 텍스트 절대 포함 금지
+
+응답 형식:
+{"orders":[
+  {"name":"이금선 전도사님","menu":"아이스 다크 아메리카노","skip":false},
+  {"name":"이찬진","menu":"아이스 다크 아메리카노","skip":false},
+  {"name":"인복근 목사님","menu":"","skip":true},
+  {"name":"노목사님","menu":["핫 디카페인","핫 오트밀라떼","얼음컵"],"skip":false}
+]}`});
+
+  const url='https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-lite:generateContent?key='+apiKey;
+  const res=await fetch(url,{
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({contents:[{parts}]})
+  });
+  if(!res.ok){
+    const err=await res.json();
+    throw new Error(err.error?.message||'API 오류 '+res.status);
+  }
+  const data=await res.json();
+  return data.candidates[0].content.parts[0].text;
+}
+
+async function runAnalysis(){
+  if(!uploadedFiles.length)return;
+  if(!getApiKey()){showToast('❌ API 키를 먼저 입력하고 저장해주세요!');return;}
+  const btn=document.getElementById('analyzeBtn');
+  btn.disabled=true;
+  const box=document.getElementById('analyzingBox');
+  box.classList.remove('hidden');
+  const progFill=document.getElementById('progressFill');
+  const atxt=document.getElementById('analyzingText');
+  let prog=0;
+  const timer=setInterval(()=>{prog=Math.min(prog+3,88);progFill.style.width=prog+'%';},200);
+  try{
+    atxt.innerHTML='Gemini AI가 이미지를 분석 중입니다...<br>잠시만 기다려주세요 ☕';
+    const resultText=await callGemini(uploadedFiles);
+    clearInterval(timer);
+    progFill.style.width='100%';
+    const cleaned=resultText.replace(/```json|```/g,'').trim();
+    const parsed=JSON.parse(cleaned);
+    if(!parsed.orders?.length){showToast('주문 정보를 찾지 못했습니다.');return;}
+    parsedOrders=[];
+    for(const o of parsed.orders){
+      if(o.skip){parsedOrders.push({name:o.name||'',menu:'',skip:true});continue;}
+
+      // 이름 자체에 _ 구분자가 포함된 경우 처리 (예: "노목사님_핫 디카페인")
+      // AI가 name에 대리주문 정보를 넣는 경우 대비
+      let oName = o.name||'';
+      let oMenu = o.menu;
+      if(oName.includes('_')){
+        const underIdx = oName.indexOf('_');
+        const possibleMenu = oName.slice(underIdx+1).trim();
+        oName = oName.slice(0, underIdx).trim();
+        // menu가 비어있거나 이름과 같으면 _ 뒤를 메뉴로 사용
+        if(!oMenu || oMenu===o.name) oMenu = possibleMenu;
+      }
+
+      let menus=[];
+      if(Array.isArray(oMenu)){
+        menus=oMenu.map(m=>m.trim()).filter(m=>m);
+      } else {
+        const raw=(oMenu||'').trim();
+        const parts=raw.split(',').map(m=>m.trim()).filter(m=>m);
+        if(parts.length>1 && parts.every(p=>p.length<=30)){
+          menus=parts;
+        } else {
+          menus=[raw];
+        }
+      }
+      menus.forEach(m=>{
+        // _ 구분자 패턴 (예: "노목사님_핫 디카페인")
+        const underMatch = m.match(/^(.{2,10}?(?:님|목사님|전도사님|간사님|집사님|장로님|권사님|집사|간사|목사|전도사)?)_(.+)/);
+        // - 구분자 패턴 (예: "노목사님 - 핫 디카페인")
+        const dashMatch = m.match(/^(.{2,10}(?:님|목사님|전도사님|간사님|집사님|장로님|권사님|집사|간사|목사|전도사)?)\s*[-–—]\s*(.+)/);
+        if(underMatch){
+          parsedOrders.push({name:underMatch[1].trim(), menu:normalizeMenu(underMatch[2].trim()), skip:false});
+        } else if(dashMatch){
+          parsedOrders.push({name:dashMatch[1].trim(), menu:normalizeMenu(dashMatch[2].trim()), skip:false});
+        } else {
+          parsedOrders.push({name:oName||'', menu:normalizeMenu(m), skip:false});
+        }
+      });
+    }
+    atxt.textContent='✅ 분석 완료!';
+    setTimeout(()=>{box.classList.add('hidden');showEditTable();},500);
+  }catch(err){
+    clearInterval(timer);
+    box.classList.add('hidden');
+    showToast('❌ 오류: '+err.message);
+    console.error(err);
+  }finally{
+    btn.disabled=false;
+  }
+}
+
+function parseRawText(){
+  const text=document.getElementById('rawTextInput').value.trim();
+  if(!text){showToast('텍스트를 입력해주세요');return;}
+  const lines=text.split('\n').map(l=>l.trim()).filter(l=>l.length>1);
+  const orders=[];
+  const skipPat=['안 먹','안먹','불참','X -','X-','패스','x -'];
+  for(const line of lines){
+    const isSkip=skipPat.some(p=>line.toLowerCase().includes(p.toLowerCase()));
+    const pats=[
+      /^(.+?(?:님|목사님|전도사님|간사님|집사님|장로님|권사님|집사|간사|목사|전도사))\s*[-\u2013\u2014]\s*(.+)/,
+      /^(.+?(?:님|목사님|전도사님|간사님|집사님|장로님|권사님|집사|간사|목사|전도사))\s+(.+)/,
+      /^(\S+)\s*[-\u2013\u2014]\s*(.+)/,
+      /^(\S+)\s+(.+)/,
+    ];
+    let matched=false;
+    for(const pat of pats){
+      const m=line.match(pat);
+      if(m){
+        const name=m[1].trim();
+        const rawMenu=m[2].trim().replace(/[-\u2013\u2014]\s*\d[\d,]*\s*원?/g,'').trim();
+        const menuIsSkip=!!rawMenu.match(/^[Xx\xd7]/);
+        orders.push({name,menu:(isSkip||menuIsSkip)?'':rawMenu,skip:isSkip||menuIsSkip});
+        matched=true;break;
+      }
+    }
+    if(!matched)orders.push({name:line,menu:'',skip:isSkip});
+  }
+  if(!orders.length){showToast('주문 정보를 찾지 못했습니다.');return;}
+  parsedOrders=orders;
+  showEditTable();
+}
+
+function showEditTable(){
+  document.getElementById('step2-card').classList.remove('hidden');
+  renderStats();renderEditTable();
+  document.getElementById('step2-card').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function renderStats(){
+  const total=parsedOrders.length;
+  const ordering=parsedOrders.filter(o=>!o.skip).length;
+  const skipping=parsedOrders.filter(o=>o.skip).length;
+  document.getElementById('statsRow').innerHTML=
+    '<div class="stat-box"><div class="num">'+total+'</div><div class="lbl">전체 인원</div></div>'+
+    '<div class="stat-box"><div class="num" style="color:var(--green)">'+ordering+'</div><div class="lbl">주문 인원</div></div>'+
+    '<div class="stat-box"><div class="num" style="color:var(--red)">'+skipping+'</div><div class="lbl">미참여</div></div>';
+  const mc={};
+  parsedOrders.filter(o=>!o.skip&&o.menu).forEach(o=>{mc[o.menu]=(mc[o.menu]||0)+1;});
+  const max=Math.max(...Object.values(mc),1);
+  document.getElementById('menuChart').innerHTML=Object.entries(mc).sort((a,b)=>b[1]-a[1]).map(([n,c])=>
+    '<div class="menu-row"><div class="name" title="'+n+'">'+n+'</div>'+
+    '<div class="bar-wrap"><div class="bar" style="width:'+(c/max*100).toFixed(0)+'%"></div></div>'+
+    '<div class="count">'+c+'</div></div>').join('');
+}
+
+function renderEditTable(){
+  document.getElementById('editTableBody').innerHTML=parsedOrders.map((o,i)=>
+    '<tr>'+
+    '<td><input class="edit-input" value="'+esc(o.name)+'" onchange="updateOrder('+i+',\'name\',this.value)"></td>'+
+    '<td>'+(o.skip?'<span class="skip-badge">불참</span>':'<input class="edit-input" value="'+esc(o.menu)+'" onchange="updateOrder('+i+',\'menu\',this.value)">')+'</td>'+
+    '<td><button onclick="deleteRow('+i+')" style="background:none;border:none;cursor:pointer;color:var(--red);font-size:18px">🗑</button></td>'+
+    '</tr>').join('');
+}
+
+function normalizeMenu(m){
+  if(!m) return m;
+  // 띄어쓰기 교정
+  m = m.replace(/오트밀라떼/g, '오트밀 라떼');
+  m = m.replace(/바닐라라떼/g, '바닐라 라떼');
+  m = m.replace(/나이스라떼/g, '나이스 라떼');
+  m = m.replace(/다크아메리카노/g, '다크 아메리카노');
+  m = m.replace(/선셋아메리카노/g, '선셋 아메리카노');
+  m = m.replace(/게이샤아메리카노/g, '게이샤 아메리카노');
+  // 중복 공백 제거
+  m = m.replace(/  +/g, ' ').trim();
+
+  // 아메리카노/라떼 자동완성
+  const americano = ['다크','선셋','게이샤','디카페인'];
+  const latte = ['바닐라','나이스','오트밀'];
+  for(const w of americano){
+    // "핫 다크" / "아이스 다크" 처럼 뒤에 아메리카노 없는 경우
+    if(m.match(new RegExp('(핫|아이스)\\s+'+w+'$'))){
+      m = m + ' 아메리카노';
+    }
+    // "다크" 단독 (온도도 없는 경우는 건드리지 않음)
+  }
+  for(const w of latte){
+    if(m.match(new RegExp('(핫|아이스)\\s+'+w+'$'))){
+      m = m + ' 라떼';
+    }
+  }
+  return m;
+}
+
+function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function updateOrder(i,f,v){parsedOrders[i][f]=v;if(f==='menu')parsedOrders[i].skip=!v;renderStats();}
+function deleteRow(i){parsedOrders.splice(i,1);renderStats();renderEditTable();}
+function addRow(){parsedOrders.push({name:'',menu:'',skip:false});renderEditTable();const rows=document.querySelectorAll('#editTableBody tr');rows[rows.length-1]?.querySelector('input')?.focus();}
+
+function generateOutput(){
+  // 이찬진의 주문은 포인트 처리용으로 별도 표시하되, 메뉴 목록에는 포함
+  const chanjinOrders = parsedOrders.filter(o=>!o.skip && o.menu && o.name.includes('이찬진'));
+  const ordering = parsedOrders.filter(o=>!o.skip && o.menu);
+
+  const mc={};
+  ordering.forEach(o=>{mc[o.menu]=(mc[o.menu]||0)+1;});
+
+  const today=new Date();
+  const mm=String(today.getMonth()+1).padStart(2,'0');
+  const dd=String(today.getDate()).padStart(2,'0');
+  const days=['일','월','화','수','목','금','토'];
+
+  const sorted=Object.entries(mc).sort((a,b)=>{
+    const americano=['다크','선셋','게이샤','디카페인'];
+    const latte=['바닐라','나이스','오트밀'];
+    function getOrder(m){
+      if(m.includes('얼음컵')) return 3;
+      if(latte.some(w=>m.includes(w))) return 2;
+      if(americano.some(w=>m.includes(w))) return 1;
+      return 1;
+    }
+    const oa=getOrder(a[0]), ob=getOrder(b[0]);
+    if(oa!==ob) return oa-ob;
+    return b[1]-a[1];
+  });
+  const menuLine=sorted.map(([m,c])=>m+' '+c+'잔').join('\n');
+
+  // 얼음컵 개수
+  const iceCupCount = ordering.filter(o=>o.menu.trim()==='얼음컵').length;
+
+  // 포인트 처리 (얼음컵 아닌 메뉴만)
+  const pointOrders = chanjinOrders.filter(o=>o.menu.trim()!=='얼음컵');
+  const pointCount = pointOrders.length;
+
+  // 전체 잔수 - 얼음컵 - 포인트분 = 일반 주문 잔수
+  const normalCount = ordering.filter(o=>o.menu.trim()!=='얼음컵').length - pointCount;
+
+  // 총 잔수 표시: 일반 + 포인트 + 얼음컵 (0인 항목 생략)
+  const totalParts = [];
+  totalParts.push(normalCount+'잔');
+  if(pointCount>0) totalParts.push(pointCount+'잔(포인트)');
+  if(iceCupCount>0) totalParts.push(iceCupCount+'잔(얼음컵)');
+  const totalLine = totalParts.join(' + ');
+
+  // 이찬진 포인트 멘트
+  let pointNote = '';
+  if(pointOrders.length>0){
+    const pointMenuLine = pointOrders.map(o=>o.menu+' 1잔').join(', ');
+    pointNote = '\n\n'+pointMenuLine+'은\n포인트로 해주세요!';
+  }
+
+  document.getElementById('orderSummaryText').textContent=
+    '['+mm+'/'+dd+'('+days[today.getDay()]+') 커피 주문]\n'+menuLine+pointNote+'\n\n총 '+totalLine+'입니다.\n감사합니다!';
+
+  document.getElementById('resultTableBody').innerHTML=parsedOrders.map(o=>
+    '<tr><td>'+esc(o.name)+'</td>'+
+    '<td>'+(o.skip?'<span class="skip-badge">미참여</span>':'<span class="menu-badge">'+esc(o.menu)+'</span>')+'</td>'+
+    '<td style="font-size:12px;color:var(--gray-600)">'+(o.skip?'안 마심':'')+'</td></tr>').join('');
+
+  document.getElementById('step3-card').classList.remove('hidden');
+  document.getElementById('step4-card').classList.remove('hidden');
+  document.getElementById('step5-card').classList.remove('hidden');
+
+  // 사역자 / 직원 구분
+  const ministry = ['노정숙','인복근','이요한','사공윤호','홍석청','이금선','하경란','김인자','지종호','박근영','전지경','손경미'];
+  const staff    = ['염겸손','조형근','김나단','정대명','이찬진'];
+  const nameMap  = {
+    '노목사님':'노정숙','노정숙 목사님':'노정숙',
+    '인복근 목사님':'인복근',
+    '이금선 전도사님':'이금선',
+    '지목사님':'지종호','지종호 목사님':'지종호',
+    '박근영 목사님':'박근영',
+    '전지경 전도사님':'전지경',
+    '조형근 집사님':'조형근',
+    '김나단':'김나단',
+    '손경미':'손경미'
+  };
+
+  function resolveShortName(fullName){
+    for(const k in nameMap){ if(fullName.includes(k)||k.includes(fullName)) return nameMap[k]; }
+    for(const m of ministry){ if(fullName.includes(m)) return m; }
+    for(const s of staff){ if(fullName.includes(s)) return s; }
+    return fullName;
+  }
+
+  function buildGroupRows(group){
+    const rows = [];
+    parsedOrders.forEach(o=>{
+      const short = resolveShortName(o.name);
+      if(group.includes(short)){
+        rows.push('<tr><td>'+esc(short)+'</td><td>'+(o.skip?'<span class="skip-badge">미참여</span>':'<span class="menu-badge">'+esc(o.menu)+'</span>')+'</td></tr>');
+      }
+    });
+    // 그룹에 아예 없는 멤버는 미참여로 표시
+    group.forEach(name=>{
+      const found = parsedOrders.some(o=>resolveShortName(o.name)===name);
+      if(!found) rows.push('<tr><td>'+esc(name)+'</td><td><span class="skip-badge">미참여</span></td></tr>');
+    });
+    // 이름 순서 고정 (group 배열 순서대로)
+    const ordered = [];
+    group.forEach(name=>{
+      const matched = rows.filter(r=>r.includes('>'+name+'<'));
+      matched.forEach(r=>ordered.push(r));
+    });
+    return ordered.join('');
+  }
+
+  document.getElementById('ministryTableBody').innerHTML = buildGroupRows(ministry);
+  document.getElementById('staffTableBody').innerHTML    = buildGroupRows(staff);
+
+  document.getElementById('step3-card').scrollIntoView({behavior:'smooth',block:'start'});
+}
+
+function copyOrder(){navigator.clipboard.writeText(document.getElementById('orderSummaryText').textContent).then(()=>showToast('📋 복사되었습니다!'));}
+function shareOrder(){const t=document.getElementById('orderSummaryText').textContent;if(navigator.share)navigator.share({text:t});else copyOrder();}
+
+function downloadCSV(){
+  const BOM='\uFEFF', today=new Date();
+  const mm=String(today.getMonth()+1).padStart(2,'0');
+  const dd=String(today.getDate()).padStart(2,'0');
+  const days=['일','월','화','수','목','금','토'];
+  const dateLabel=mm+'/'+dd+'('+days[today.getDay()]+')';
+  const stamp=today.getFullYear()+mm+dd;
+
+  const members=['노정숙','인복근','이요한','사공윤호','홍석청','이금선','하경란','김인자','지종호','박근영','전지경','손경미','염겸손','조형근','김나단','정대명'];
+  // 노목사님 -> 노정숙 매핑
+  const nameMap={
+    '노목사님':'노정숙','노정숙 목사님':'노정숙',
+    '인복근 목사님':'인복근',
+    '이금선 전도사님':'이금선',
+    '지목사님':'지종호','지종호 목사님':'지종호',
+    '박근영 목사님':'박근영',
+    '전지경 전도사님':'전지경',
+    '조형근 집사님':'조형근'
+  };
+
+  // 메뉴를 축약어로 변환
+  function shortMenu(menu){
+    if(!menu) return '';
+    if(menu.includes('다크')) return '다크';
+    if(menu.includes('선셋')) return '선셋';
+    if(menu.includes('게이샤')) return '게이샤';
+    if(menu.includes('디카페인')) return '디카페인';
+    if(menu.includes('바닐')) return '바닐라';
+    if(menu.includes('나이스')) return '나이스';
+    if(menu.includes('오트밀')) return '오트밀';
+    return menu;
+  }
+
+  // 이름별 메뉴 매핑 (얼음컵만 시킨 경우 제외)
+  const nameToMenu={};
+  parsedOrders.filter(o=>!o.skip&&o.menu&&o.menu.trim()!=='얼음컵').forEach(o=>{
+    let mappedName = o.name;
+    for(const key in nameMap){
+      if(o.name.includes(key)) mappedName = nameMap[key];
+    }
+    if(!nameToMenu[mappedName]){
+      nameToMenu[mappedName] = shortMenu(o.menu);
+    }
+  });
+
+  const header='이름,'+dateLabel;
+  const rows=members.map(member=>{
+    let mark='';
+    for(const name in nameToMenu){
+      if(name.includes(member)||member.split('').slice(0,2).every(c=>name.includes(c))){
+        mark=nameToMenu[name];
+        break;
+      }
+    }
+    return '"'+member+'",'+mark;
+  });
+
+  const csv=BOM+header+'\n'+rows.join('\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8;'}));
+  a.download='커피출석_'+stamp+'.csv';
+  a.click();
+  showToast('⬇️ CSV 다운로드 완료!');
+}
+
+function copyTable(){
+  const rows=parsedOrders.map(o=>o.name+'\t'+(o.skip?'미참여':o.menu)+'\t'+(o.skip?'안 마심':'')).join('\n');
+  navigator.clipboard.writeText('이름\t메뉴\t비고\n'+rows).then(()=>showToast('📋 표 복사 완료! 엑셀에 붙여넣기 하세요'));
+}
+
+function resetAll(){
+  uploadedFiles=[];parsedOrders=[];
+  document.getElementById('previewGrid').innerHTML='';
+  document.getElementById('rawTextInput').value='';
+  document.getElementById('fileInput').value='';
+  document.getElementById('analyzeBtn').disabled=true;
+  ['step2-card','step3-card','step4-card','step5-card'].forEach(id=>document.getElementById(id).classList.add('hidden'));
+  window.scrollTo({top:0,behavior:'smooth'});showToast('🔄 초기화 완료');
+}
+
+function showToast(msg){
+  const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2500);
+}
+</script>
+</body>
+</html>
