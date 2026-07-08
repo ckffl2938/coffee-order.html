@@ -711,7 +711,19 @@ function downloadCSV(){
   const dateLabel=mm+'/'+dd+'('+days[today.getDay()]+')';
   const stamp=today.getFullYear()+mm+dd;
 
-  const members=['노정숙','인복근','이요한','사공윤호','홍석청','이금선','하경란','김인자','지종호','박근영','전지경','손경미','염겸손','조형근','김나단','정대명'];
+  const members=['노정숙','인복근','이금선','하경란','조형근','김나단','이요한','사공윤호','홍석청','김인자','염겸손','정대명','이찬진'];
+  // 위 고정 멤버 외 추가 인원은 자동으로 뒤에 붙음
+  const fixedSet = new Set(members);
+  const extraNames = parsedOrders
+    .filter(o=>!o.skip&&o.menu)
+    .map(o=>{
+      // nameMap으로 실제 이름 변환
+      let n=o.name;
+      for(const k in nameMap){ if(o.name.includes(k)) n=nameMap[k]; }
+      return n.replace(/\s*(목사님|전도사님|간사님|집사님|장로님|권사님|집사|간사|목사|전도사|님)\s*/g,'').trim();
+    })
+    .filter(n=>n&&!fixedSet.has(n)&&![...fixedSet].some(m=>n.includes(m)||m.includes(n)));
+  const allMembers = [...members, ...[...new Set(extraNames)]];
   // 노목사님 -> 노정숙 매핑
   const nameMap={
     '노목사님':'노정숙','노정숙 목사님':'노정숙',
@@ -749,7 +761,7 @@ function downloadCSV(){
   });
 
   const header='이름,'+dateLabel;
-  const rows=members.map(member=>{
+  const rows=allMembers.map(member=>{
     let mark='';
     for(const name in nameToMenu){
       if(name.includes(member)||member.split('').slice(0,2).every(c=>name.includes(c))){
