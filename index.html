@@ -711,20 +711,7 @@ function downloadCSV(){
   const dateLabel=mm+'/'+dd+'('+days[today.getDay()]+')';
   const stamp=today.getFullYear()+mm+dd;
 
-  const members=['노정숙','인복근','이금선','하경란','조형근','김나단','이요한','사공윤호','홍석청','김인자','염겸손','정대명','이찬진'];
-  // 위 고정 멤버 외 추가 인원은 자동으로 뒤에 붙음
-  const fixedSet = new Set(members);
-  const extraNames = parsedOrders
-    .filter(o=>!o.skip&&o.menu)
-    .map(o=>{
-      // nameMap으로 실제 이름 변환
-      let n=o.name;
-      for(const k in nameMap){ if(o.name.includes(k)) n=nameMap[k]; }
-      return n.replace(/\s*(목사님|전도사님|간사님|집사님|장로님|권사님|집사|간사|목사|전도사|님)\s*/g,'').trim();
-    })
-    .filter(n=>n&&!fixedSet.has(n)&&![...fixedSet].some(m=>n.includes(m)||m.includes(n)));
-  const allMembers = [...members, ...[...new Set(extraNames)]];
-  // 노목사님 -> 노정숙 매핑
+  // nameMap 먼저 선언
   const nameMap={
     '노목사님':'노정숙','노정숙 목사님':'노정숙',
     '인복근 목사님':'인복근',
@@ -735,7 +722,13 @@ function downloadCSV(){
     '조형근 집사님':'조형근'
   };
 
-  // 메뉴를 축약어로 변환
+  // 이름 정규화 (직함 제거)
+  function normName(n){
+    for(const k in nameMap){ if(n.includes(k)) return nameMap[k]; }
+    return n.replace(/(목사님|전도사님|간사님|집사님|장로님|권사님|집사|간사|목사|전도사|님)\s*/g,'').trim();
+  }
+
+  // 메뉴 축약어
   function shortMenu(menu){
     if(!menu) return '';
     if(menu.includes('다크')) return '다크';
@@ -748,25 +741,29 @@ function downloadCSV(){
     return menu;
   }
 
-  // 이름별 메뉴 매핑 (얼음컵만 시킨 경우 제외)
+  // 고정 멤버 순서
+  const members=['노정숙','인복근','이금선','하경란','조형근','김나단','이요한','사공윤호','홍석청','김인자','염겸손','정대명','이찬진'];
+  const fixedSet=new Set(members);
+
+  // 이름별 메뉴 매핑 (얼음컵만 단독 주문 제외)
   const nameToMenu={};
   parsedOrders.filter(o=>!o.skip&&o.menu&&o.menu.trim()!=='얼음컵').forEach(o=>{
-    let mappedName = o.name;
-    for(const key in nameMap){
-      if(o.name.includes(key)) mappedName = nameMap[key];
-    }
-    if(!nameToMenu[mappedName]){
-      nameToMenu[mappedName] = shortMenu(o.menu);
-    }
+    const mapped=normName(o.name);
+    if(!nameToMenu[mapped]) nameToMenu[mapped]=shortMenu(o.menu);
   });
+
+  // 고정 멤버 외 추가 인원 (하단에 자동 추가)
+  const extraNames=[...new Set(
+    Object.keys(nameToMenu).filter(n=>!fixedSet.has(n)&&![...fixedSet].some(m=>n.includes(m)||m.includes(n)))
+  )];
+  const allMembers=[...members,...extraNames];
 
   const header='이름,'+dateLabel;
   const rows=allMembers.map(member=>{
     let mark='';
     for(const name in nameToMenu){
-      if(name.includes(member)||member.split('').slice(0,2).every(c=>name.includes(c))){
-        mark=nameToMenu[name];
-        break;
+      if(name===member||name.includes(member)||member.includes(name)){
+        mark=nameToMenu[name]; break;
       }
     }
     return '"'+member+'",'+mark;
