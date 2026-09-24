@@ -358,22 +358,25 @@ async function callGemini(imageFiles){
    → 댓글 작성자 이름(정대명, 이찬진 등)은 완전히 무시
    → "—" 또는 "-" 앞의 이름이 실제 주문자
    → 한 댓글에 여러 줄이면 각각 별도 주문으로 처리
-   예시: 정대명이 "박근영목사님—아이스 다크" 라고 댓글 → name:"박근영목사님", menu:"아이스 다크 아메리카노"
-   예시: 이찬진이 "노목사님 - 핫 디카페인, 핫 오트밀 라떼, 얼음컵" → name:"노목사님", menu:["핫 디카페인","핫 오트밀 라떼","얼음컵"]
 
 3. skip 규칙: "X", "안 먹습니다", "불참", "패스", "오늘은 안" 포함 시만 skip:true
    메뉴가 보이면 절대 skip:true 금지
 
-4. 메뉴 규칙:
-   - 온도(핫/아이스) 절대 생략 금지
-   - 다크/선셋/게이샤/디카페인 → 뒤에 "아메리카노" 자동 추가 (없으면)
-   - 바닐라/나이스/오트밀 → 뒤에 "라떼" 자동 추가 (없으면)
-   - 가격(-2000 등) 제거
-   - 얼음컵은 그대로 "얼음컵"
+4. 메뉴 온도 규칙 (매우 중요!):
+   - 이미지에 "아이스" 또는 "ice"라고 쓰여 있으면 반드시 "아이스"로 표기
+   - 이미지에 "핫" 또는 "hot"이라고 쓰여 있으면 반드시 "핫"으로 표기
+   - 절대로 아이스↔핫을 바꾸지 말 것. 보이는 그대로만 적을 것
+   - 온도가 명시된 경우 생략 절대 금지
+   - 온도가 없으면 추측하지 말고 그냥 메뉴명만 적을 것
 
-5. UI 텍스트 무시: 날짜/시간/투표현황/커피메뉴골라주세요/N분전 등
+5. 메뉴 자동완성:
+   - 다크/선셋/게이샤/디카페인 → 뒤에 "아메리카노" 없으면 추가
+   - 바닐라/나이스/오트밀 → 뒤에 "라떼" 없으면 추가
+   - 가격(-2000 등) 제거 / 얼음컵은 그대로 "얼음컵"
 
-JSON만 응답, 다른 텍스트 절대 포함 금지:
+6. UI 텍스트 무시: 날짜/시간/투표현황/커피메뉴골라주세요/N분전 등
+
+JSON만 응답:
 {"orders":[
   {"name":"이금선 전도사님","menu":"아이스 다크 아메리카노","skip":false},
   {"name":"인복근 목사님","menu":"","skip":true},
@@ -553,6 +556,7 @@ function renderEditTable(){
 
 function normalizeMenu(m){
   if(!m) return m;
+
   // 띄어쓰기 교정
   m = m.replace(/오트밀라떼/g, '오트밀 라떼');
   m = m.replace(/바닐라라떼/g, '바닐라 라떼');
@@ -560,6 +564,16 @@ function normalizeMenu(m){
   m = m.replace(/다크아메리카노/g, '다크 아메리카노');
   m = m.replace(/선셋아메리카노/g, '선셋 아메리카노');
   m = m.replace(/게이샤아메리카노/g, '게이샤 아메리카노');
+
+  // 아이스/핫 혼동 교정
+  // 라떼류(바닐라/나이스/오트밀)는 보통 핫으로 마심 → "아이스 오트밀 라떼" 패턴은 유지, 단독 "아이스 오트밀"만 교정X
+  // 아메리카노류는 아이스/핫 둘 다 가능 → 그대로 유지
+  // 단, "ice" "hot" 영문 표기를 한글로 통일
+  m = m.replace(/^ice\s+/i, '아이스 ');
+  m = m.replace(/^hot\s+/i, '핫 ');
+  m = m.replace(/ice\s+/gi, '아이스 ');
+  m = m.replace(/hot\s+/gi, '핫 ');
+
   // 중복 공백 제거
   m = m.replace(/  +/g, ' ').trim();
 
@@ -567,16 +581,10 @@ function normalizeMenu(m){
   const americano = ['다크','선셋','게이샤','디카페인'];
   const latte = ['바닐라','나이스','오트밀'];
   for(const w of americano){
-    // "핫 다크" / "아이스 다크" 처럼 뒤에 아메리카노 없는 경우
-    if(m.match(new RegExp('(핫|아이스)\\s+'+w+'$'))){
-      m = m + ' 아메리카노';
-    }
-    // "다크" 단독 (온도도 없는 경우는 건드리지 않음)
+    if(new RegExp('^(핫|아이스)\s+'+w+'$').test(m)) m = m + ' 아메리카노';
   }
   for(const w of latte){
-    if(m.match(new RegExp('(핫|아이스)\\s+'+w+'$'))){
-      m = m + ' 라떼';
-    }
+    if(new RegExp('^(핫|아이스)\s+'+w+'$').test(m)) m = m + ' 라떼';
   }
   return m;
 }
@@ -711,7 +719,6 @@ function downloadCSV(){
   const dateLabel=mm+'/'+dd+'('+days[today.getDay()]+')';
   const stamp=today.getFullYear()+mm+dd;
 
-  // nameMap 먼저 선언
   const nameMap={
     '노목사님':'노정숙','노정숙 목사님':'노정숙',
     '인복근 목사님':'인복근',
@@ -722,13 +729,11 @@ function downloadCSV(){
     '조형근 집사님':'조형근'
   };
 
-  // 이름 정규화 (직함 제거)
   function normName(n){
     for(const k in nameMap){ if(n.includes(k)) return nameMap[k]; }
     return n.replace(/(목사님|전도사님|간사님|집사님|장로님|권사님|집사|간사|목사|전도사|님)\s*/g,'').trim();
   }
 
-  // 메뉴 축약어
   function shortMenu(menu){
     if(!menu) return '';
     if(menu.includes('다크')) return '다크';
@@ -741,29 +746,44 @@ function downloadCSV(){
     return menu;
   }
 
-  // 고정 멤버 순서
-  const members=['노정숙','인복근','이금선','하경란','조형근','김나단','이요한','사공윤호','홍석청','김인자','염겸손','정대명','이찬진'];
+  // 고정 멤버 순서 (요청 순서대로)
+  const members=['노정숙','인복근','이금선','하경란','조형근','이요한','사공윤호','홍석청','김인자','염겸손','김나단','정대명','이찬진'];
   const fixedSet=new Set(members);
 
-  // 이름별 메뉴 매핑 (얼음컵만 단독 주문 제외)
-  const nameToMenu={};
+  // 이름별 메뉴 목록 수집 (얼음컵 제외)
+  const nameToMenus={};
   parsedOrders.filter(o=>!o.skip&&o.menu&&o.menu.trim()!=='얼음컵').forEach(o=>{
     const mapped=normName(o.name);
-    if(!nameToMenu[mapped]) nameToMenu[mapped]=shortMenu(o.menu);
+    if(!nameToMenus[mapped]) nameToMenus[mapped]=[];
+    nameToMenus[mapped].push(shortMenu(o.menu));
   });
 
-  // 고정 멤버 외 추가 인원 (하단에 자동 추가)
+  // 노정숙: 디카페인+오트밀 동시 주문이면 'ㅇ', 단독이면 각각 표시
+  if(nameToMenus['노정숙']){
+    const menus=nameToMenus['노정숙'];
+    const hasDeca=menus.includes('디카페인');
+    const hasOat=menus.includes('오트밀');
+    if(hasDeca&&hasOat){
+      nameToMenus['노정숙']=['ㅇ'];
+    } else if(hasDeca){
+      nameToMenus['노정숙']=['디카페인'];
+    } else if(hasOat){
+      nameToMenus['노정숙']=['오트밀'];
+    }
+  }
+
+  // 고정 외 추가 인원
   const extraNames=[...new Set(
-    Object.keys(nameToMenu).filter(n=>!fixedSet.has(n)&&![...fixedSet].some(m=>n.includes(m)||m.includes(n)))
+    Object.keys(nameToMenus).filter(n=>!fixedSet.has(n)&&![...fixedSet].some(m=>n.includes(m)||m.includes(n)))
   )];
   const allMembers=[...members,...extraNames];
 
   const header='이름,'+dateLabel;
   const rows=allMembers.map(member=>{
     let mark='';
-    for(const name in nameToMenu){
+    for(const name in nameToMenus){
       if(name===member||name.includes(member)||member.includes(name)){
-        mark=nameToMenu[name]; break;
+        mark=nameToMenus[name][0]||''; break;
       }
     }
     return '"'+member+'",'+mark;
